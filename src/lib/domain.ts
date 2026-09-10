@@ -63,6 +63,9 @@ export const STATUS_MAP: Record<StatusKey, { label: string }> = {
 };
 
 export const SLA_TARGET_DAYS = 21;
+/** Days a property may stay open before the dashboard flags it. */
+export const SLA_WARNING_DAYS = 14;
+export const SLA_CRITICAL_DAYS = 30;
 export const AVG_TARIEF = 450;
 
 export function getStatus(p: Property): { key: StatusKey; label: string } {

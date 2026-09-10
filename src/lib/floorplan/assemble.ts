@@ -1,7 +1,8 @@
-import type { Pt, Room } from '@/lib/types';
+import type { Opening, Pt, Room } from '@/lib/types';
 import { bbox, boxesOverlap, polygonArea, rectangle, regularize, translate, type Box } from './geometry';
 
 export interface PlacedRoom {
+  openings?: Opening[];
   name: string;
   area: number;
   poly: Pt[];
@@ -42,7 +43,7 @@ function hasDistinctOrigins(rooms: Room[]): boolean {
 function placeMeasured(rooms: Room[]): PlacedRoom[] {
   return rooms.map((r) => {
     const poly = regularize(r.poly!);
-    return { name: r.name, area: r.area || round1(polygonArea(poly)), poly, box: bbox(poly), measured: true };
+    return { name: r.name, area: r.area || round1(polygonArea(poly)), poly, box: bbox(poly), measured: true, openings: r.openings };
   });
 }
 
@@ -60,12 +61,12 @@ export function packRooms(rooms: Room[]): PlacedRoom[] {
     if (r.poly && r.poly.length >= 3) {
       const poly = regularize(r.poly);
       const b = bbox(poly);
-      return { name: r.name, area: r.area || round1(polygonArea(poly)), poly: translate(poly, -b.minX, -b.minY), measured: true };
+      return { name: r.name, area: r.area || round1(polygonArea(poly)), poly: translate(poly, -b.minX, -b.minY), measured: true, openings: r.openings };
     }
     const ratio = aspectFor(r.name);
     const w = Math.sqrt(r.area * ratio);
     const h = r.area / w;
-    return { name: r.name, area: r.area, poly: rectangle(round2(w), round2(h)), measured: false };
+    return { name: r.name, area: r.area, poly: rectangle(round2(w), round2(h)), measured: false, openings: undefined };
   });
 
   // Largest first, so the living space anchors the plan.
@@ -87,7 +88,7 @@ export function packRooms(rooms: Room[]): PlacedRoom[] {
       shelfHeight = 0;
     }
     const poly = translate(r.poly, cursorX, shelfY);
-    placed.push({ name: r.name, area: r.area, poly, box: bbox(poly), measured: r.measured });
+    placed.push({ name: r.name, area: r.area, poly, box: bbox(poly), measured: r.measured, openings: r.openings });
     cursorX += b.w + gap;
     shelfHeight = Math.max(shelfHeight, b.h);
   }

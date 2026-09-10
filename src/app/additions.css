@@ -1,0 +1,4 @@
+/* Aanvullingen op de basisstijl: links die als knop of rij worden gebruikt,
+   en het raster van de overzichtskaarten. */
+a { color: inherit; text-decoration: none; }
+a.nav-item, a.nav-catrow, a.nav-prow, a.overview-card, a.overview-back, a.ghost-btn, a.task-row { text-decoration: none; }

@@ -1,4 +1,4 @@
-import 'server-only';
+
 import { getStore } from './db';
 import type { Email, Profile, Property, SentEmail, Task } from './types';
 

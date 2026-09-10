@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { AppData } from '@/lib/server-data';
 import type { Lang } from '@/lib/i18n';
 import type { Profile, Property } from '@/lib/types';
@@ -78,11 +78,17 @@ export function useApp(): AppContextValue {
   return v;
 }
 
-/** Publish the page title, subtitle and status pill into the shared header. */
+/**
+ * Publish the page title, subtitle and status pill into the shared header.
+ * The pill is read from a ref so an inline element does not re-fire the effect
+ * on every render; it still updates on its own, because the stored element sits
+ * in the tree and re-renders with the context it reads.
+ */
 export function usePageHeader(title: string, sub?: string, pill?: ReactNode) {
   const { setHeader } = useApp();
+  const pillRef = useRef<ReactNode>(pill);
+  pillRef.current = pill;
   useEffect(() => {
-    setHeader({ title, sub, pill });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, sub, pill]);
+    setHeader({ title, sub, pill: pillRef.current });
+  }, [title, sub, setHeader]);
 }

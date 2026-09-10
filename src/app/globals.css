@@ -1,3 +1,4 @@
 @import './base.css';
+@import './additions.css';
 @import 'maplibre-gl/dist/maplibre-gl.css';
 @import './capture.css';

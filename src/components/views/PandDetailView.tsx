@@ -9,6 +9,7 @@ import { AssignModal } from '@/components/platform/Shared';
 import { ActivityNotes, NotesOnly } from '@/components/property/ActivityNotes';
 import { FloorPlanPanel } from '@/components/property/FloorPlanPanel';
 import { MediaPanel, PhotosModal } from '@/components/property/MediaPanel';
+import { OpnamePanel } from '@/components/property/OpnamePanel';
 import { ShareModal } from '@/components/property/ShareModal';
 import { LabelBars, StatusPill } from '@/components/ui/StatusPill';
 import { avatarSrc } from '@/data/profiles';
@@ -119,6 +120,7 @@ function Results({ p }: { p: Property }) {
         )}
       </div>
       <MediaPanel p={p} />
+      <OpnamePanel p={p} />
       {(showPlan || showLabel) && (
         <div style={{ marginTop: 18 }}>
           <button className="primary-btn" onClick={() => router.push(`/panden/${p.id}/rapport`)}>

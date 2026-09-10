@@ -46,13 +46,14 @@ Address, postcode, city and coordinates always come back for real: PDOK Locaties
    - **Muur voor muur**, the laser meter route. Type each wall length and the turn after it; the app shows the closure error so a typo is visible before the room is saved.
    - **Hoeken aantikken**, on any phone. Tap the corners on the camera image and give one measured wall to scale it.
 4. Photos per room queue in IndexedDB and upload when there is signal.
-5. Sending the capture builds the floors, regularises every outline, draws the plan, fills the NEN 2580 table and moves the property into processing.
+5. Fill in the opnameformulier NTA 8800: the thermische schil, the installations and the bewijslast photos. What the scan measured is already in it. The app counts what is still open per section and will not send until it is zero.
+6. Sending the capture builds the floors, regularises every outline, draws the plan, fills the NEN 2580 table and moves the property into processing.
 
 Rooms measured in one continuous walk share an origin, so they are placed where they actually are. Rooms measured one at a time are packed into a plan by area, and the result says so rather than pretending the layout is surveyed.
 
 ## What is real and what is a stand-in
 
-Real: the geometry pipeline, the NEN 2580 category split, the NTA 8800 calculation and its what-if simulator, the address lookup, the capture link, the offline queue, the lead intake, the reports and their print output.
+Real: the geometry pipeline, the NEN 2580 category split, the ISSO 82.1 opnameformulier with its completeness check and bewijslast, the NTA 8800 calculation and its what-if simulator, the address lookup, the capture link, the offline queue, the lead intake, the reports and their print output.
 
 Stand-ins, clearly marked in the interface: the photo finishing and video assembly steps in the pipeline (the platform tracks them, it does not perform them yet), the Vabi hand-off (the file format is prepared for it, the export is not written), and the modules under Uitbreidingen, which are previews of work that is not in scope.
 
@@ -65,6 +66,7 @@ src/app/indicatie       public indication site
 src/app/klant           client-facing progress pages
 src/app/api             capture, lead, lookup and property endpoints
 src/lib/floorplan       geometry, assembly, SVG rendering, capture processing
+src/lib/opname          the ISSO 82.1 opnameformulier: schema, record, geometry, derivation
 src/lib/nta8800.ts      envelope, installations, energy demand, label, simulator
 src/lib/nen2580.ts      measurement categories and totals
 src/lib/lookup          PDOK, BAG and EP-Online clients

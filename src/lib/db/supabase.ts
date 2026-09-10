@@ -43,6 +43,7 @@ type PropertyRow = {
   meetrapport: unknown;
   signoff: unknown;
   floors: unknown;
+  opname: unknown;
   runtime: unknown;
   lead: unknown;
   sort_order: number;
@@ -70,6 +71,7 @@ function toProperty(r: PropertyRow): Property {
     meetrapport: (r.meetrapport as Property['meetrapport']) ?? null,
     signoff: (r.signoff as Property['signoff']) ?? null,
     floors: (r.floors as Property['floors']) ?? [],
+    opname: (r.opname as Property['opname']) ?? null,
     runtime: (r.runtime as Property['runtime']) ?? undefined,
     leadSource: (lead.source as 'publiek' | undefined) ?? null,
     leadAt: (lead.at as string | undefined) ?? null,
@@ -103,6 +105,7 @@ function fromProperty(p: Property, sortOrder = 0): PropertyRow {
     meetrapport: p.meetrapport ?? null,
     signoff: p.signoff ?? null,
     floors: p.floors,
+    opname: p.opname ?? null,
     runtime: p.runtime ?? null,
     lead: p.leadSource
       ? {
@@ -129,6 +132,7 @@ type CaptureRow = {
   status: string;
   method: string | null;
   rooms: unknown;
+  opname: unknown;
   device_info: unknown;
   processed_at: string | null;
   error: string | null;
@@ -140,6 +144,7 @@ type PhotoRow = {
   session_id: string;
   room_client_id: string | null;
   kind: string;
+  opname_key: string | null;
   storage_path: string | null;
   width: number | null;
   height: number | null;
@@ -156,10 +161,12 @@ function toCapture(r: CaptureRow): CaptureSession {
     status: r.status as CaptureSession['status'],
     method: (r.method as CaptureSession['method']) ?? null,
     rooms: (r.rooms as CaptureSession['rooms']) ?? [],
+    opname: (r.opname as CaptureSession['opname']) ?? null,
     photos: (r.capture_photos ?? []).map((p) => ({
       id: p.id,
       roomClientId: p.room_client_id,
       kind: p.kind as CapturePhoto['kind'],
+      opnameKey: p.opname_key ?? null,
       storagePath: p.storage_path,
       width: p.width ?? undefined,
       height: p.height ?? undefined,
@@ -301,7 +308,8 @@ export class SupabaseStore implements Store {
   async createCaptureSession(s: CaptureSession): Promise<CaptureSession> {
     const { error } = await this.db.from('capture_sessions').insert({
       id: s.id, token: s.token, property_id: s.propertyId, created_by: s.createdBy, created_at: s.createdAt,
-      status: s.status, method: s.method, rooms: s.rooms, device_info: s.deviceInfo ?? null,
+      status: s.status, method: s.method, rooms: s.rooms, opname: s.opname ?? null,
+      device_info: s.deviceInfo ?? null,
     });
     if (error) throw error;
     return s;
@@ -340,6 +348,7 @@ export class SupabaseStore implements Store {
     if (patch.status !== undefined) row.status = patch.status;
     if (patch.method !== undefined) row.method = patch.method;
     if (patch.rooms !== undefined) row.rooms = patch.rooms;
+    if (patch.opname !== undefined) row.opname = patch.opname;
     if (patch.deviceInfo !== undefined) row.device_info = patch.deviceInfo;
     if (patch.processedAt !== undefined) row.processed_at = patch.processedAt;
     if (patch.error !== undefined) row.error = patch.error;
@@ -351,7 +360,7 @@ export class SupabaseStore implements Store {
   async addCapturePhoto(sessionId: string, photo: CapturePhoto): Promise<CapturePhoto> {
     const { error } = await this.db.from('capture_photos').insert({
       id: photo.id, session_id: sessionId, room_client_id: photo.roomClientId, kind: photo.kind,
-      storage_path: photo.storagePath, width: photo.width ?? null, height: photo.height ?? null,
+      opname_key: photo.opnameKey ?? null, storage_path: photo.storagePath, width: photo.width ?? null, height: photo.height ?? null,
       taken_at: photo.takenAt,
     });
     if (error) throw error;

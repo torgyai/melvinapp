@@ -7,6 +7,8 @@ import { Logo } from '@/components/platform/Logo';
 import { LabelBars, StatusPill } from '@/components/ui/StatusPill';
 import { totalArea } from '@/lib/domain';
 import { fmtEuro, fmtNum } from '@/lib/format';
+import { glasPerOrientatie } from '@/lib/opname/derive';
+import { orientatieLabel } from '@/lib/opname/footprint';
 import {
   computeSim,
   energiebehoefteFor,
@@ -58,6 +60,7 @@ export function LabelStatusBox({ p, style }: { p: Property; style?: React.CSSPro
 /** Bouwschil, installaties en energiebehoefte: ook gebruikt in het eindrapport. */
 export function CalcSections({ p }: { p: Property }) {
   const env = envelopeFor(p);
+  const glas = glasPerOrientatie(p.opname);
   const inst = installatiesFor(p);
   const eb = energiebehoefteFor(p, inst);
   const maxRow = Math.max(1, ...eb.rows.map((r) => r.waarde), Math.abs(eb.opwek));
@@ -77,8 +80,8 @@ export function CalcSections({ p }: { p: Property }) {
             </tr>
           </thead>
           <tbody>
-            {env.elements.map((e) => (
-              <tr key={e.naam}>
+            {env.elements.map((e, i) => (
+              <tr key={`${e.naam}-${i}`}>
                 <td>{e.naam}</td>
                 <td style={{ textAlign: 'right' }}>{fmtNum(e.opp)} m²</td>
                 <td style={{ textAlign: 'right' }}>
@@ -90,6 +93,34 @@ export function CalcSections({ p }: { p: Property }) {
           </tbody>
         </table>
       </div>
+
+      {glas.length > 0 && (
+        <div className="report-section">
+          <h3>Beglazing per oriëntatie</h3>
+          <table className="room-table">
+            <thead>
+              <tr>
+                <th>Oriëntatie</th>
+                <th style={{ textAlign: 'right' }}>Raamoppervlak</th>
+              </tr>
+            </thead>
+            <tbody>
+              {glas.map((g) => (
+                <tr key={g.orientatie}>
+                  <td>{orientatieLabel(g.orientatie)}</td>
+                  <td style={{ textAlign: 'right' }}>{fmtNum(g.opp)} m²</td>
+                </tr>
+              ))}
+              <tr className="total">
+                <td>Totaal</td>
+                <td style={{ textAlign: 'right' }}>
+                  {fmtNum(glas.reduce((s, g) => s + g.opp, 0))} m²
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="report-section">
         <h3>Installaties</h3>

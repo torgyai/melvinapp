@@ -25,6 +25,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
   const kind = (form.get('kind') as CapturePhoto['kind'] | null) ?? 'ruimte';
   const roomClientId = (form.get('roomClientId') as string | null) ?? null;
+  const opnameKey = (form.get('opnameKey') as string | null) ?? null;
   const width = Number(form.get('width')) || undefined;
   const height = Number(form.get('height')) || undefined;
 
@@ -36,6 +37,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     id,
     roomClientId,
     kind,
+    opnameKey,
     storagePath: supabaseConfigured() ? storagePath : null,
     width,
     height,

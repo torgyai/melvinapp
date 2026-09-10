@@ -51,10 +51,32 @@ Rules the pipeline relies on:
 - `poly` is in **metres**, in the floor's own coordinate frame, listed in order around the room. Three points minimum. The ring is closed implicitly; do not repeat the first point.
 - Rooms captured in one continuous session must share one origin. That is what lets the plan place them where they really are. Rooms captured independently should each start at `(0, 0)`, which tells the pipeline to pack them by area instead and to flag the plan as composed rather than surveyed.
 - `openings.wall` is the index of the wall in `poly`; wall *i* runs from `poly[i]` to `poly[i+1]`. `offset` is metres from the wall start.
-- `heading` is the compass bearing in degrees of the first wall, when the device knows it. It orients the north arrow.
+- `heading` is the compass bearing the device read at the start of the measurement, in degrees. Sending it means something stronger than the arrow on the plan: **the outline is drawn in the north-up frame**, with `+y` north and `+x` east. The opnameformulier reads the oriëntatie of every gevel, raam and deur straight out of that frame. A client that cannot put its outline on north leaves `heading` off, and the oriëntatie is then left to the surveyor rather than invented.
 - `method` is one of `ar`, `manual`, `lidar`, `import`. It is recorded on the room, so a report can say how a measurement was taken.
 
 Send the full room list every time. The server replaces it.
+
+## The opnameformulier
+
+The same PATCH carries the ISSO 82.1 opnameformulier as `opname`:
+
+```json
+{
+  "opname": {
+    "formulier": "Opnameformulier NTA 8800 Woningen, ISSO 82.1",
+    "values": { "gebouwtype": "tussenwoning", "opwekker1": "hr107" },
+    "rows": { "gevels": [{ "rowId": "gevel-N", "naam": "Gevel noord", "opp": 18.4, "orientatie": "N" }] },
+    "photos": { "voorgevel": ["<photo id>"] },
+    "updatedAt": "2026-09-10T09:12:04.000Z"
+  }
+}
+```
+
+`src/lib/opname/schema.ts` is the authority on which fields exist, which answers
+they take and which of them a basisopname must have. `gapsFor` in
+`src/lib/opname/record.ts` returns what is still open. A client that fills the
+form itself should run the same check before closing the capture, because the
+server runs it too.
 
 ## Photos
 
@@ -63,10 +85,10 @@ POST /api/capture/<token>/photos
 Content-Type: multipart/form-data
 
 file=<binary>  kind=ruimte|voorgevel|installatie|meterkast|detail
-roomClientId=<clientId>  width=<px>  height=<px>
+roomClientId=<clientId>  width=<px>  height=<px>  opnameKey=<bewijslast key>
 ```
 
-One photo per request, up to 12 MB. With Supabase configured the file lands in the `captures` bucket under `<sessionId>/<photoId>.<ext>`; without it, images up to 2 MB are held in the session so the chain still runs end to end.
+One photo per request, up to 12 MB. `opnameKey` links the photo to a bewijslast requirement on the opnameformulier, for example `voorgevel` or `toestel-typeplaatje`; leave it off for a plain room photo. With Supabase configured the file lands in the `captures` bucket under `<sessionId>/<photoId>.<ext>`; without it, images up to 2 MB are held in the session so the chain still runs end to end.
 
 ## Closing the capture
 
@@ -74,7 +96,7 @@ One photo per request, up to 12 MB. With Supabase configured the file lands in t
 POST /api/capture/<token>/finish
 ```
 
-The server regularises every outline, groups the rooms into floors, assembles and draws each floor, writes the floors onto the property, sets a first energy estimate when the property has no label yet, and moves the property into processing.
+The server first checks the opnameformulier and refuses with `400` and a `gaps` list when anything required is still open. Then it regularises every outline, groups the rooms into floors, assembles and draws each floor, writes the floors and the opname record onto the property, sets a first energy estimate when the property has no label yet, and moves the property into processing.
 
 Response:
 

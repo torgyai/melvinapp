@@ -180,3 +180,39 @@
 }
 .cap-opening-kind.raam{background:#0d3a52;}
 .cap-opening-kind.deur{background:#5a3300;}
+
+/* ---- opnameformulier ---- */
+
+.cap-sections{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.cap-section-row{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:left;font-family:inherit;cursor:pointer;
+  background:#132927;border:1px solid #1c3634;border-radius:11px;padding:13px;color:#eef4f2;font-size:14px;
+}
+.cap-section-name{font-weight:700;flex:1;min-width:0;}
+.cap-section-count{font-size:11.5px;font-weight:700;color:#f8ac01;flex:none;}
+.cap-section-count.done{color:#5fbf9c;}
+
+.cap-row-card{
+  background:#0f2221;border:1px solid #1c3634;border-radius:13px;padding:13px;
+  display:flex;flex-direction:column;gap:11px;
+}
+.cap-row-head{display:flex;align-items:baseline;gap:10px;font-size:13.5px;color:#eef4f2;}
+.cap-row-head strong{flex:1;min-width:0;}
+
+.cap-field.missing input,.cap-field.missing select{border-color:#5a4a14;}
+.cap-field-hint{font-size:11.5px;font-weight:500;color:#7d9491;font-style:normal;line-height:1.45;}
+
+.cap-photo-req{
+  background:#0f2221;border:1px solid #1c3634;border-radius:13px;padding:13px;
+  display:flex;flex-direction:column;gap:9px;
+}
+.cap-photo-req.missing{border-color:#5a4a14;}
+.cap-photo-req-head{display:flex;gap:10px;align-items:baseline;font-size:13px;color:#eef4f2;font-weight:600;}
+.cap-photo-req-head span:first-child{flex:1;min-width:0;}
+.cap-photo-req-count{font-size:11.5px;font-weight:800;color:#f8ac01;flex:none;}
+.cap-photo-req.missing .cap-photo-req-count{color:#f8ac01;}
+.cap-photo-req:not(.missing) .cap-photo-req-count{color:#5fbf9c;}
+
+.cap-gap-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:#9db3b0;}
+.cap-gap-list li{background:#132927;border-radius:9px;padding:8px 11px;}
+.cap-gap-list li strong{color:#eef4f2;font-weight:700;}

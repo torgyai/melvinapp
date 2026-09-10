@@ -1,4 +1,5 @@
 import { indexToLabel, totalArea } from './domain';
+import { envelopeFromOpname, installatiesFromOpname } from './opname/derive';
 import { round2 } from './format';
 import type { LabelKey, Property } from './types';
 
@@ -27,6 +28,14 @@ export function envelopeFor(p: Property): Envelope {
   else if (y < 2006) era = { muur: 2.0, dak: 2.0, vloer: 2.0, glasU: 1.6, label: '1992–2006' };
   else if (y < 2015) era = { muur: 2.5, dak: 2.5, vloer: 2.5, glasU: 1.2, label: '2006–2015' };
   else era = { muur: 4.5, dak: 6.0, vloer: 3.5, glasU: 1.0, label: '2015 en later' };
+
+  // Is er een ingevuld opnameformulier, dan komt de schil daaruit: waargenomen
+  // isolatie, gemeten oppervlakken en de glassoort per raam. De bouwjaar-
+  // typering is alleen de terugval als er niets is opgenomen.
+  const uitOpname = envelopeFromOpname(p.opname);
+  if (uitOpname) {
+    return { era: { ...era, label: 'opname NTA 8800' }, elements: uitOpname };
+  }
 
   const area = totalArea(p);
   const measuredGlass = measuredGlassArea(p);
@@ -78,6 +87,8 @@ export interface Installaties {
 }
 
 export function installatiesFor(p: Property): Installaties {
+  const opgenomen = installatiesFromOpname(p.opname);
+  if (opgenomen) return opgenomen;
   const y = p.year || 1995;
   const area = totalArea(p);
   const verwarming = y >= 2015 ? 'Warmtepomp (lucht/water)' : 'HR107 CV-ketel';

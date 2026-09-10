@@ -24,12 +24,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ token:
     return NextResponse.json({ error: 'Deze opname is al verwerkt' }, { status: 409 });
   }
 
-  const body = (await req.json()) as Partial<Pick<CaptureSession, 'rooms' | 'status' | 'method' | 'deviceInfo'>>;
+  const body = (await req.json()) as Partial<
+    Pick<CaptureSession, 'rooms' | 'status' | 'method' | 'deviceInfo' | 'opname'>
+  >;
   const patch: Partial<CaptureSession> = {};
   if (Array.isArray(body.rooms)) patch.rooms = body.rooms as CaptureRoom[];
   if (body.status === 'capturing' || body.status === 'uploaded') patch.status = body.status;
   if (body.method) patch.method = body.method;
   if (body.deviceInfo) patch.deviceInfo = body.deviceInfo;
+  if (body.opname) patch.opname = body.opname;
 
   const updated = await store.updateCaptureSession(session.id, patch);
   return NextResponse.json({ session: updated });

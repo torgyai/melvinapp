@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { flushQueue, listQueue, loadRooms, saveRooms } from '@/lib/capture/local-store';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushQueue, listQueue, loadOpname, loadRooms, saveOpname, saveRooms } from '@/lib/capture/local-store';
 import { tidy } from '@/lib/capture/rooms';
 import { isArSupported } from '@/lib/capture/webxr';
+import type { OpnameRecord } from '@/lib/opname/record';
+import { autofill, clearDerived, emptyRecord, gapsFor } from '@/lib/opname/record';
 import { fmtNum } from '@/lib/format';
 import type { CaptureRoom, CaptureSession, Opening, Property, Pt } from '@/lib/types';
 import { MeasureAr } from './MeasureAr';
@@ -11,10 +13,11 @@ import { MeasureCamera } from './MeasureCamera';
 import { MeasureSweep } from './MeasureSweep';
 import { MeasureTap } from './MeasureTap';
 import { MeasureWalls } from './MeasureWalls';
+import { OpnameForm, type OpnamePhotoPreview } from './OpnameForm';
 import { RoomPhotos, type PendingPhoto } from './RoomPhotos';
 import { RoomPreview } from './RoomPreview';
 
-type Step = 'intro' | 'room' | 'sweep' | 'camera' | 'ar' | 'walls' | 'tap' | 'photos' | 'review' | 'sent';
+type Step = 'intro' | 'room' | 'sweep' | 'camera' | 'ar' | 'walls' | 'tap' | 'photos' | 'opname' | 'review' | 'sent';
 
 const FLOORS = ['Begane grond', 'Eerste verdieping', 'Tweede verdieping', 'Zolder', 'Kelder', 'Berging'];
 const ROOM_SUGGESTIONS = [
@@ -33,6 +36,12 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ totalArea: number; warnings: string[] } | null>(null);
+  const [opname, setOpname] = useState<OpnameRecord>(session.opname ?? emptyRecord());
+  const [opnamePreviews, setOpnamePreviews] = useState<Record<string, OpnamePhotoPreview[]>>({});
+  const previewUrls = useRef<string[]>([]);
+  // De blobs van de bewijsfoto's blijven de hele opname in beeld, dus ze worden
+  // pas vrijgegeven als de opname zelf sluit.
+  useEffect(() => () => previewUrls.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
   const [roomName, setRoomName] = useState('');
   const [floorName, setFloorName] = useState(FLOORS[0]!);
@@ -57,11 +66,15 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
     void loadRooms(token).then((stored) => {
       if (stored?.length && stored.length > session.rooms.length) setRooms(stored);
     });
+    void loadOpname<OpnameRecord>(token).then((stored) => {
+      if (stored) setOpname((cur) => (stored.updatedAt > cur.updatedAt ? stored : cur));
+    });
   }, [token, session.rooms.length]);
 
   const syncRooms = useCallback(
-    async (next: CaptureRoom[]) => {
+    async (next: CaptureRoom[], record?: OpnameRecord) => {
       const stored = await saveRooms(token, next);
+      if (record) await saveOpname(token, record);
       if (!stored) {
         setError('Deze browser mag niets lokaal bewaren. Werk door met bereik, anders gaan ruimtes verloren.');
       }
@@ -69,7 +82,7 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
         const res = await fetch(`/api/capture/${token}`, {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ rooms: next, status: 'capturing' }),
+          body: JSON.stringify({ rooms: next, opname: record, status: 'capturing' }),
         });
         if (res.status === 409) {
           setError('Deze opname is al verwerkt. Start een nieuwe opname voor dit pand om verder te gaan.');
@@ -104,6 +117,7 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
   }, [token]);
 
   const totalArea = useMemo(() => rooms.reduce((s, r) => s + (r.poly ? areaOfRoom(r) : 0), 0), [rooms]);
+  const gaps = useMemo(() => gapsFor(opname), [opname]);
 
   const startRoom = () => {
     setMethodNote(null);
@@ -140,16 +154,36 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
   const saveRoom = async () => {
     if (!currentRoom) return;
     const next = [...rooms, currentRoom];
+    // Every extra room settles more of the opnameformulier: the gevels per
+    // orientatie, the vloer- en dakoppervlak and the raamlijst all follow from
+    // the geometry, so they are filled in as soon as the room is saved.
+    const filled = autofill(opname, next, property).record;
     setRooms(next);
+    setOpname(filled);
     setCurrentRoom(null);
-    await syncRooms(next);
+    await syncRooms(next, filled);
     setStep('review');
   };
 
   const removeRoom = async (clientId: string) => {
     const next = rooms.filter((r) => r.clientId !== clientId);
+    // Alles wat uit de geometrie kwam en nog niet is ingevuld, wordt opnieuw
+    // afgeleid: anders blijft het oppervlak van een verwijderde ruimte staan.
+    const cleared = clearDerived(opname, ['gevels', 'vloeren', 'daken', 'ramen', 'deuren']);
+    const filled = autofill(cleared, next, property).record;
     setRooms(next);
-    await syncRooms(next);
+    setOpname(filled);
+    await syncRooms(next, filled);
+  };
+
+  const updateOpname = (next: OpnameRecord) => {
+    // Het dak volgt uit de dakvorm, en die staat pas in het formulier zodra de
+    // opnemer hem invult. Verandert hij, dan gaan de nog niet ingevulde
+    // dakvlakken weg zodat ze opnieuw uit de scan worden afgeleid.
+    const merged = next.values.typeDak !== opname.values.typeDak ? clearDerived(next, ['daken']) : next;
+    const filled = autofill(merged, rooms, property).record;
+    setOpname(filled);
+    void saveOpname(token, filled);
   };
 
   /**
@@ -180,7 +214,7 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
     setError(null);
     try {
       await flushQueue(token);
-      const synced = await syncRooms(rooms);
+      const synced = await syncRooms(rooms, opname);
       if (!synced) {
         setBusy(false);
         return;
@@ -191,8 +225,21 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
         body: JSON.stringify({ status: 'uploaded' }),
       });
       const res = await fetch(`/api/capture/${token}/finish`, { method: 'POST' });
-      const json = (await res.json()) as { totalArea?: number; warnings?: string[]; error?: string };
-      if (!res.ok) throw new Error(json.error ?? 'Verzenden is mislukt');
+      const json = (await res.json()) as {
+        totalArea?: number;
+        warnings?: string[];
+        error?: string;
+        gaps?: { section: string; what: string }[];
+      };
+      if (!res.ok) {
+        const detail = json.gaps?.length
+          ? `${json.error ?? 'Verzenden is mislukt'}: ${json.gaps
+              .slice(0, 3)
+              .map((g) => `${g.section} · ${g.what}`)
+              .join('; ')}`
+          : json.error ?? 'Verzenden is mislukt';
+        throw new Error(detail);
+      }
       setResult({ totalArea: json.totalArea ?? 0, warnings: json.warnings ?? [] });
       setStep('sent');
     } catch (err) {
@@ -228,7 +275,8 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
               <li>Kies de verdieping en de naam van de ruimte</li>
               <li>Leg de vorm vast: met AR, muur voor muur, of door de hoeken aan te tikken</li>
               <li>Maak foto&apos;s van de ruimte, de installatie en de meterkast</li>
-              <li>Verstuur de opname als je klaar bent</li>
+              <li>Vul het opnameformulier NTA 8800 in: schil, installaties en bewijsfoto&apos;s</li>
+              <li>Verstuur de opname als alles compleet is</li>
             </ul>
             <div className="cap-actions">
               <button className="cap-btn" onClick={startRoom}>
@@ -363,6 +411,20 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
           </div>
         )}
 
+        {step === 'opname' && (
+          <OpnameForm
+            token={token}
+            record={opname}
+            onChange={updateOpname}
+            onClose={() => setStep('review')}
+            previews={opnamePreviews}
+            onPreview={(key, added) => {
+              previewUrls.current.push(...added.map((p) => p.url));
+              setOpnamePreviews((all) => ({ ...all, [key]: [...(all[key] ?? []), ...added] }));
+            }}
+          />
+        )}
+
         {step === 'review' && (
           <div className="cap-panel">
             <div className="cap-panel-title">Opgenomen ruimtes</div>
@@ -391,13 +453,45 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
                 Totaal {fmtNum(Math.round(totalArea * 10) / 10)} m² over {new Set(rooms.map((r) => r.floorName)).size} verdieping(en)
               </div>
             )}
+
+            <div className="cap-panel-title small">Opnameformulier NTA 8800</div>
+            <p className="cap-help">
+              Een energielabel vraagt meer dan de maten: de isolatie van vloer, dak en gevel, het glas per raam, de
+              installaties en de foto&apos;s die dat onderbouwen. Zonder die gegevens mag de opname niet worden
+              afgemeld.
+            </p>
+            {gaps.length === 0 ? (
+              <div className="cap-note">Het opnameformulier is compleet.</div>
+            ) : (
+              <>
+                <div className="cap-note warn">
+                  Nog {gaps.length} punt{gaps.length === 1 ? '' : 'en'} open.
+                </div>
+                <ul className="cap-gap-list">
+                  {gaps.slice(0, 6).map((g, i) => (
+                    <li key={i}>
+                      <strong>{g.section}</strong> · {g.what}
+                    </li>
+                  ))}
+                  {gaps.length > 6 && <li>en nog {gaps.length - 6} andere</li>}
+                </ul>
+              </>
+            )}
+            <button className="cap-btn ghost" onClick={() => setStep('opname')}>
+              Opnameformulier invullen
+            </button>
+
             {error && <div className="cap-note warn">{error}</div>}
             <div className="cap-actions">
               <button className="cap-btn ghost" onClick={startRoom}>
                 Volgende ruimte
               </button>
-              <button className="cap-btn" disabled={!rooms.length || busy} onClick={() => void finish()}>
-                {busy ? 'Versturen…' : 'Opname versturen'}
+              <button
+                className="cap-btn"
+                disabled={!rooms.length || busy || gaps.length > 0}
+                onClick={() => void finish()}
+              >
+                {busy ? 'Versturen…' : gaps.length > 0 ? `Nog ${gaps.length} punten open` : 'Opname versturen'}
               </button>
             </div>
           </div>

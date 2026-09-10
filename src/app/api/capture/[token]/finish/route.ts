@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getStore } from '@/lib/db';
 import { processCapture } from '@/lib/floorplan/process';
+import { gapsFor } from '@/lib/opname/record';
 import type { Property } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,22 @@ export async function POST(_req: Request, { params }: { params: Promise<{ token:
     return NextResponse.json({ error: 'Deze opname is al verwerkt' }, { status: 409 });
   }
 
+  // Een energielabel mag niet worden afgemeld op alleen maten. Het
+  // opnameformulier NTA 8800 moet compleet zijn, inclusief de bewijsfoto's.
+  if (!session.opname) {
+    return NextResponse.json({ error: 'Het opnameformulier is nog niet ingevuld' }, { status: 400 });
+  }
+  const gaps = gapsFor(session.opname);
+  if (gaps.length) {
+    return NextResponse.json(
+      {
+        error: `Het opnameformulier is nog niet compleet: ${gaps.length} punt${gaps.length === 1 ? '' : 'en'} open`,
+        gaps: gaps.slice(0, 20),
+      },
+      { status: 400 },
+    );
+  }
+
   await store.updateCaptureSession(session.id, { status: 'processing' });
 
   const property = await store.getProperty(session.propertyId);
@@ -31,6 +48,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ token:
     if (property && property.lifecycle !== 'done') {
       const patch: Partial<Property> = {
         floors: result.floors,
+        opname: session.opname,
         photoCount: session.photos.length,
         lifecycle: 'interactive',
         runtime: {

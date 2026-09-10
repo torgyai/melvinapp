@@ -1,3 +1,5 @@
+import type { OpnameRecord } from './opname/record';
+
 export type Lifecycle = 'wait' | 'progress' | 'ready' | 'done' | 'interactive';
 export type StatusKey = 'wait' | 'progress' | 'ready' | 'done';
 export type OutputMode = 'both' | 'plattegrond' | 'label';
@@ -110,6 +112,8 @@ export interface Property {
   meetrapport?: Meetrapport | null;
   signoff?: Signoff | null;
   floors: Floor[];
+  /** The opname record the field capture filled in, once it has been sent. */
+  opname?: OpnameRecord | null;
   runtime?: Runtime;
   leadSource?: 'publiek' | null;
   leadAt?: string | null;
@@ -196,6 +200,8 @@ export interface CaptureSession {
   method: CaptureMethod | null;
   rooms: CaptureRoom[];
   photos: CapturePhoto[];
+  /** The filled-in ISSO 82.1 opnameformulier for this property. */
+  opname?: OpnameRecord | null;
   deviceInfo?: Record<string, string | number | boolean> | null;
   processedAt?: string | null;
   error?: string | null;
@@ -205,6 +211,8 @@ export interface CapturePhoto {
   id: string;
   roomClientId: string | null;
   kind: 'ruimte' | 'voorgevel' | 'installatie' | 'meterkast' | 'detail';
+  /** Which bewijslast-eis on the opnameformulier this photo answers. */
+  opnameKey?: string | null;
   storagePath: string | null;
   /** Only used in demo mode, where there is no object storage. */
   dataUrl?: string | null;

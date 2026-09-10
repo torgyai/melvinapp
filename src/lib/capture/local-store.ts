@@ -17,6 +17,8 @@ export interface QueuedPhoto {
   token: string;
   roomClientId: string | null;
   kind: string;
+  /** Which bewijslast-eis on the opnameformulier this photo answers. */
+  opnameKey?: string | null;
   blob: Blob;
   width: number;
   height: number;
@@ -100,6 +102,7 @@ export async function flushQueue(token: string): Promise<number> {
     form.set('file', p.blob, `${p.id}.jpg`);
     form.set('kind', p.kind);
     if (p.roomClientId) form.set('roomClientId', p.roomClientId);
+    if (p.opnameKey) form.set('opnameKey', p.opnameKey);
     form.set('width', String(p.width));
     form.set('height', String(p.height));
     try {
@@ -113,4 +116,23 @@ export async function flushQueue(token: string): Promise<number> {
     }
   }
   return sent;
+}
+
+/** The opnameformulier lives next to the rooms, so it survives a lost signal too. */
+export async function saveOpname(token: string, record: unknown): Promise<boolean> {
+  try {
+    await withStore(ROOMS, 'readwrite', (s) => s.put(record, `opname:${token}`) as unknown as IDBRequest<undefined>);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function loadOpname<T>(token: string): Promise<T | null> {
+  try {
+    const rec = await withStore<T | undefined>(ROOMS, 'readonly', (s) => s.get(`opname:${token}`));
+    return rec ?? null;
+  } catch {
+    return null;
+  }
 }

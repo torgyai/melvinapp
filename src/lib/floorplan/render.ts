@@ -44,7 +44,7 @@ export function renderFloorSvg(floor: AssembledFloor, opts: RenderOptions = {}):
   const outline = `<rect x="6" y="6" width="${W - 12}" height="${H - 12 - captionH}" rx="4" fill="#fbfaf6" stroke="none"/>`;
 
   const rooms = floor.rooms.map((r) => renderRoom(r, toPx, pxPerM)).join('');
-  const chromeSvg = chrome ? northArrow(W - pad - 22, pad + 22, opts.north ?? 0) + scaleBar(pad, H - captionH + 6, pxPerM) : '';
+  const chromeSvg = chrome ? northArrow(W - pad - 22, pad + 22, opts.north ?? 0) + scaleBar(W - pad, H - captionH + 10, pxPerM) : '';
   const caption = chrome
     ? `<text x="${pad}" y="${H - 12}" font-size="11" fill="#5b6c6a">${escapeXml(
         opts.caption ?? `${floor.name} · ${fmtNum(floorTotal(floor))} m²`,
@@ -63,7 +63,11 @@ function renderRoom(r: PlacedRoom, toPx: (p: Pt) => Pt, pxPerM: number): string 
   const pts = r.poly.map(toPx);
   const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ') + ' Z';
   const c = toPx(labelAnchor(r));
-  const fontSize = Math.max(9, Math.min(14, Math.sqrt(r.area) * 2.6));
+  // Tekstgrootte in meters, zodat het label meeschaalt met de tekening en ook
+  // leesbaar blijft als de plattegrond klein wordt afgebeeld.
+  const rb = bbox(r.poly);
+  const nameMetres = Math.min(0.34, rb.w / 6, rb.h / 3);
+  const fontSize = Math.max(8, nameMetres * pxPerM);
 
   const openings = (r.openings ?? []).map((o) => renderOpening(r, o, toPx, pxPerM)).join('');
 
@@ -138,11 +142,13 @@ function northArrow(x: number, y: number, heading: number): string {
   );
 }
 
-function scaleBar(x: number, y: number, pxPerM: number): string {
+/** Right-aligned, so it never collides with the caption on the left. */
+function scaleBar(right: number, y: number, pxPerM: number): string {
   const metres = niceStep(60 / pxPerM);
   const w = metres * pxPerM;
+  const labelWidth = 34;
   return (
-    `<g transform="translate(${x},${y})">` +
+    `<g transform="translate(${(right - w - labelWidth).toFixed(1)},${y})">` +
     `<line x1="0" y1="6" x2="${w.toFixed(1)}" y2="6" stroke="#5b6c6a" stroke-width="1.4"/>` +
     `<line x1="0" y1="2" x2="0" y2="10" stroke="#5b6c6a" stroke-width="1.4"/>` +
     `<line x1="${w.toFixed(1)}" y1="2" x2="${w.toFixed(1)}" y2="10" stroke="#5b6c6a" stroke-width="1.4"/>` +

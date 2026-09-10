@@ -50,7 +50,7 @@ export function processCapture(session: CaptureSession, property?: Property | nu
 
   for (const [name, rooms] of byFloor) {
     const assembled = assembleFloor(name, rooms);
-    if (!assembled.surveyed) {
+    if (!assembled.surveyed && rooms.length > 1) {
       warnings.push(
         `${name}: de ruimtes zijn los van elkaar opgenomen, dus de plattegrond is samengesteld op oppervlakte in plaats van op echte posities.`,
       );

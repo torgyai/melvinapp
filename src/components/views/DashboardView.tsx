@@ -116,7 +116,7 @@ export function DashboardView() {
     <>
       <div className="tiles">
         <Tile value={all.length} label="panden totaal" />
-        <Tile value={avgDays !== null ? avgDays : '–'} label="gem. doorlooptijd (dagen)" />
+        <Tile value={avgDays !== null ? fmtNum(avgDays) : '–'} label="gem. doorlooptijd (dagen)" />
         <Tile value={doneList.length} label="afgerond" />
         <Tile value={all.length - doneList.length} label="open" />
         <Tile value={fmtEuro(omzetAfgerond)} label={`omzet afgerond (schatting: €${AVG_TARIEF} per pand)`} />

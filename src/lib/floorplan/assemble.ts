@@ -34,10 +34,12 @@ export function assembleFloor(name: string, rooms: Room[]): AssembledFloor {
 }
 
 function hasDistinctOrigins(rooms: Room[]): boolean {
-  // If every room starts at (0,0) it was traced on its own; nothing ties them together.
+  // One room is always in the right place relative to itself. Beyond that: if
+  // every room starts at (0,0) it was traced on its own and nothing ties the
+  // outlines together, so they have to be packed instead of placed.
+  if (rooms.length === 1) return true;
   const origins = rooms.map((r) => r.poly![0]!);
-  const allAtZero = origins.every((o) => Math.abs(o.x) < 0.01 && Math.abs(o.y) < 0.01);
-  return !allAtZero;
+  return !origins.every((o) => Math.abs(o.x) < 0.01 && Math.abs(o.y) < 0.01);
 }
 
 function placeMeasured(rooms: Room[]): PlacedRoom[] {

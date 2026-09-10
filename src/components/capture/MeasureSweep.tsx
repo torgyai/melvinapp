@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { areaOf } from '@/lib/capture/rooms';
-import { findFloorEdges, toLuma } from '@/lib/capture/flooredge';
 import { intrinsicsFor } from '@/lib/capture/intrinsics';
 import { rescaleToWall } from '@/lib/capture/sighting';
-import { SweepAccumulator, addFrame } from '@/lib/capture/sweep';
+import { RoomScan, attachOpeningsToWalls, type WallOpening } from '@/lib/capture/roomscan';
+import { readColumns, toLuma } from '@/lib/capture/walledge';
 import { regularize } from '@/lib/floorplan/geometry';
-import { fmtNum } from '@/lib/format';
-import type { Pt } from '@/lib/types';
+import { fmtNum, round2 } from '@/lib/format';
+import type { Opening, Pt } from '@/lib/types';
 import { useCameraStream } from './useCameraStream';
 import { useDeviceOrientation } from './useDeviceOrientation';
 
@@ -27,7 +27,13 @@ export function MeasureSweep({
   onCancel,
   onUnsupported,
 }: {
-  onDone: (poly: Pt[], area: number, heading: number | null) => void;
+  onDone: (result: {
+    poly: Pt[];
+    area: number;
+    heading: number | null;
+    height: number | null;
+    openings: Opening[];
+  }) => void;
   onCancel: () => void;
   onUnsupported: (reason: string) => void;
 }) {
@@ -36,6 +42,9 @@ export function MeasureSweep({
   const [coverage, setCoverage] = useState(0);
   const [outline, setOutline] = useState<Pt[]>([]);
   const [edgeCount, setEdgeCount] = useState(0);
+  const [roomHeight, setRoomHeight] = useState<number | null>(null);
+  const [heightRange, setHeightRange] = useState<[number, number] | null>(null);
+  const [openings, setOpenings] = useState<WallOpening[]>([]);
   const [refLength, setRefLength] = useState('');
   const [hint, setHint] = useState<string | null>(null);
   const [noSensor, setNoSensor] = useState(false);
@@ -43,7 +52,7 @@ export function MeasureSweep({
   const { aim, permission, request } = useDeviceOrientation();
   const { videoRef, error: cameraError } = useCameraStream(phase === 'sweeping');
 
-  const accRef = useRef(new SweepAccumulator());
+  const accRef = useRef(new RoomScan());
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastFrame = useRef(0);
@@ -84,20 +93,20 @@ export function MeasureSweep({
 
       const k = intrinsicsFor(w, h);
       const luma = toLuma(ctx.getImageData(0, 0, w, h));
-      const samples = findFloorEdges(luma, k, aim.depression);
-      const { added } = addFrame(accRef.current, samples, k, aim.depression, aim.heading, cameraHeight);
+      const reads = readColumns(luma, k, aim.depression);
+      const added = accRef.current.addFrame(reads, k, aim.depression, aim.heading, cameraHeight);
 
-      setEdgeCount(samples.length);
-      setHint(
-        samples.length < 6
-          ? 'Weinig vloerlijn in beeld. Richt op de plek waar de muur de vloer raakt.'
-          : null,
-      );
+      setEdgeCount(reads.length);
+      setHint(reads.length < 6 ? 'Weinig vloerlijn in beeld. Richt op de plek waar de muur de vloer raakt.' : null);
 
       if (added > 0) {
         const acc = accRef.current;
-        setCoverage(acc.coverage());
-        setOutline(acc.outline());
+        const res = acc.result();
+        setCoverage(res.coverage);
+        setOutline(res.outline);
+        setRoomHeight(res.height);
+        setHeightRange(res.heightRange);
+        setOpenings(res.openings);
         if (acc.complete()) {
           if (rafRef.current) cancelAnimationFrame(rafRef.current);
           rafRef.current = null;
@@ -124,12 +133,29 @@ export function MeasureSweep({
   }, [phase]);
 
   const cleaned = useMemo(() => (outline.length >= 8 ? regularize(outline) : outline), [outline]);
+  const scale = useMemo(() => {
+    const len = Number(refLength.replace(',', '.'));
+    if (cleaned.length < 3 || !(len > 0)) return 1;
+    const a = cleaned[0]!;
+    const b = cleaned[1]!;
+    const current = Math.hypot(b.x - a.x, b.y - a.y);
+    return current > 0 ? len / current : 1;
+  }, [cleaned, refLength]);
   const scaled = useMemo(() => {
     const len = Number(refLength.replace(',', '.'));
     if (cleaned.length >= 3 && len > 0) return rescaleToWall(cleaned, 0, len);
     return cleaned;
   }, [cleaned, refLength]);
   const area = scaled.length >= 3 ? areaOf(scaled) : 0;
+  const wallOpenings = useMemo(
+    () =>
+      attachOpeningsToWalls(
+        scaled,
+        openings.map((o) => ({ ...o, width: round2(o.width * scale), area: round2(o.area * scale) })),
+      ),
+    [scaled, openings, scale],
+  );
+  const scaledHeight = roomHeight !== null ? round2(roomHeight * scale) : null;
 
   const begin = async () => {
     const ok = await request();
@@ -145,6 +171,8 @@ export function MeasureSweep({
     startHeading.current = null;
     setCoverage(0);
     setOutline([]);
+    setOpenings([]);
+    setRoomHeight(null);
     setPhase('sweeping');
   };
 
@@ -153,6 +181,8 @@ export function MeasureSweep({
     startHeading.current = null;
     setCoverage(0);
     setOutline([]);
+    setOpenings([]);
+    setRoomHeight(null);
     setRefLength('');
     setPhase('sweeping');
   };
@@ -207,6 +237,41 @@ export function MeasureSweep({
       {phase === 'done' && (
         <>
           <PlanPreview poly={scaled} area={area} />
+          <div className="cap-scan-facts">
+            <div>
+              <span>{scaledHeight !== null ? `${fmtNum(scaledHeight, 2)} m` : '–'}</span>
+              <small>vrije hoogte</small>
+            </div>
+            <div>
+              <span>{scaledHeight !== null ? `${fmtNum(round2(area * scaledHeight), 1)} m³` : '–'}</span>
+              <small>inhoud</small>
+            </div>
+            <div>
+              <span>{wallOpenings.length}</span>
+              <small>openingen</small>
+            </div>
+            <div>
+              <span>{fmtNum(round2(wallOpenings.filter((o) => o.kind === 'raam').reduce((t, o) => t + o.area, 0)), 1)} m²</span>
+              <small>glas</small>
+            </div>
+          </div>
+          {heightRange && heightRange[1] - heightRange[0] > 0.25 && (
+            <div className="cap-note">
+              De hoogte loopt van {fmtNum(heightRange[0], 2)} tot {fmtNum(heightRange[1], 2)} m. Schuin dak, dus een
+              deel telt als ontoegankelijke ruimte onder 1,50 m.
+            </div>
+          )}
+          {wallOpenings.length > 0 && (
+            <ul className="cap-opening-list">
+              {wallOpenings.map((o, i) => (
+                <li key={i}>
+                  <span className={`cap-opening-kind ${o.kind}`}>{o.kind}</span>
+                  {fmtNum(o.width, 2)} × {fmtNum(round2(o.head - o.sill), 2)} m, dorpel op {fmtNum(o.sill, 2)} m,{' '}
+                  {compass(o.heading)}
+                </li>
+              ))}
+            </ul>
+          )}
           <label className="cap-field">
             <span>Eén muur nameten (m, optioneel)</span>
             <input inputMode="decimal" value={refLength} placeholder="4,82" onChange={(e) => setRefLength(e.target.value)} />
@@ -234,7 +299,20 @@ export function MeasureSweep({
           <button
             className="cap-btn"
             disabled={scaled.length < 3}
-            onClick={() => onDone(scaled, area, startHeading.current)}
+            onClick={() =>
+              onDone({
+                poly: scaled,
+                area,
+                heading: startHeading.current,
+                height: scaledHeight,
+                openings: wallOpenings.map((o) => ({
+                  wall: o.wall,
+                  offset: o.offset,
+                  width: o.width,
+                  kind: o.kind,
+                })),
+              })
+            }
           >
             Ruimte opslaan
           </button>
@@ -273,6 +351,11 @@ function SweepRadar({ outline, coverage, heading }: { outline: Pt[]; coverage: n
       </text>
     </svg>
   );
+}
+
+function compass(heading: number): string {
+  const names = ['noord', 'noordoost', 'oost', 'zuidoost', 'zuid', 'zuidwest', 'west', 'noordwest'];
+  return names[Math.round(heading / 45) % 8]!;
 }
 
 function PlanPreview({ poly, area }: { poly: Pt[]; area: number }) {

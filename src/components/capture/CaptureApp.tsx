@@ -5,7 +5,7 @@ import { flushQueue, listQueue, loadRooms, saveRooms } from '@/lib/capture/local
 import { tidy } from '@/lib/capture/rooms';
 import { isArSupported } from '@/lib/capture/webxr';
 import { fmtNum } from '@/lib/format';
-import type { CaptureRoom, CaptureSession, Property, Pt } from '@/lib/types';
+import type { CaptureRoom, CaptureSession, Opening, Property, Pt } from '@/lib/types';
 import { MeasureAr } from './MeasureAr';
 import { MeasureCamera } from './MeasureCamera';
 import { MeasureSweep } from './MeasureSweep';
@@ -113,7 +113,14 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
     setStep('room');
   };
 
-  const onMeasured = (poly: Pt[], _area: number, method: CaptureRoom['method'], heading?: number | null) => {
+  const onMeasured = (
+    poly: Pt[],
+    _area: number,
+    method: CaptureRoom['method'],
+    heading?: number | null,
+    measuredHeight?: number | null,
+    openings?: Opening[],
+  ) => {
     const clean = tidy(poly);
     const room: CaptureRoom = {
       clientId: crypto.randomUUID(),
@@ -121,8 +128,9 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
       floorName,
       method,
       poly: clean,
-      height: Number(height.replace(',', '.')) || undefined,
+      height: measuredHeight ?? (Number(height.replace(',', '.')) || undefined),
       heading: heading ?? undefined,
+      openings: openings?.length ? openings : undefined,
       photoIds: [],
     };
     setCurrentRoom(room);
@@ -310,7 +318,7 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
 
         {step === 'sweep' && (
           <MeasureSweep
-            onDone={(p, a, heading) => onMeasured(p, a, 'camera', heading)}
+            onDone={(r) => onMeasured(r.poly, r.area, 'camera', r.heading, r.height, r.openings)}
             onCancel={() => setStep('room')}
             onUnsupported={(reason) => {
               setMethodNote(reason);

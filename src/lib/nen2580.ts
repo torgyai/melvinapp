@@ -44,9 +44,16 @@ export function nenBreakdown(p: Property): NenBreakdown {
       row[cat] = round1(row[cat] + r.area);
     });
     const area = f.rooms.reduce((s, r) => s + r.area, 0);
-    // Bruto-inhoud: verdeeld naar rato van vloeroppervlak wanneer het meetrapport
-    // een totaal geeft, anders geschat met een gemiddelde verdiepingshoogte.
-    row.bi = knownBI ? Math.round(knownBI * (area / totalRoomArea)) : Math.round(area * 2.6);
+    // Bruto-inhoud: uit het meetrapport wanneer dat er is, anders uit de hoogtes
+    // die tijdens de opname zijn gemeten, en pas als laatste uit een aanname.
+    const measured = f.rooms.every((r) => typeof r.height === 'number' && r.height > 0)
+      ? f.rooms.reduce((s, r) => s + r.area * (r.height as number), 0)
+      : null;
+    row.bi = knownBI
+      ? Math.round(knownBI * (area / totalRoomArea))
+      : measured !== null
+        ? Math.round(measured)
+        : Math.round(area * 2.6);
     return row;
   });
 

@@ -29,15 +29,44 @@ export function envelopeFor(p: Property): Envelope {
   else era = { muur: 4.5, dak: 6.0, vloer: 3.5, glasU: 1.0, label: '2015 en later' };
 
   const area = totalArea(p);
+  const measuredGlass = measuredGlassArea(p);
   return {
     era,
     elements: [
       { naam: 'Gevel', opp: Math.round(area * 1.1), eenheid: 'Rc', waarde: era.muur, bron: `bouwjaar-typering ${era.label}` },
       { naam: 'Dak', opp: Math.round(area * 0.55), eenheid: 'Rc', waarde: era.dak, bron: `bouwjaar-typering ${era.label}` },
       { naam: 'Begane grondvloer', opp: Math.round(area * 0.55), eenheid: 'Rc', waarde: era.vloer, bron: `bouwjaar-typering ${era.label}` },
-      { naam: 'Beglazing', opp: Math.round(area * 0.22), eenheid: 'U', waarde: era.glasU, bron: `bouwjaar-typering ${era.label}` },
+      {
+        naam: 'Beglazing',
+        opp: measuredGlass ?? Math.round(area * 0.22),
+        eenheid: 'U',
+        waarde: era.glasU,
+        bron: measuredGlass !== null ? 'gemeten tijdens de opname' : `bouwjaar-typering ${era.label}`,
+      },
     ],
   };
+}
+
+/** Raamoppervlak uit de opname, wanneer de ruimtes openingen hebben meegekregen. */
+export function measuredGlassArea(p: Property): number | null {
+  let total = 0;
+  let found = false;
+  for (const floor of p.floors) {
+    for (const room of floor.rooms) {
+      if (!room.openings?.length || !room.poly?.length) continue;
+      const height = room.height ?? 2.6;
+      for (const o of room.openings) {
+        if (o.kind !== 'raam') continue;
+        const a = room.poly[o.wall];
+        const b = room.poly[(o.wall + 1) % room.poly.length];
+        if (!a || !b) continue;
+        found = true;
+        // Zonder gemeten dorpelhoogte is een raam ongeveer de helft van de muur hoog.
+        total += o.width * Math.min(height * 0.55, 1.6);
+      }
+    }
+  }
+  return found ? Math.round(total) : null;
 }
 
 export interface Installaties {

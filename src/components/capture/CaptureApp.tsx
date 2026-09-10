@@ -7,12 +7,13 @@ import { isArSupported } from '@/lib/capture/webxr';
 import { fmtNum } from '@/lib/format';
 import type { CaptureRoom, CaptureSession, Property, Pt } from '@/lib/types';
 import { MeasureAr } from './MeasureAr';
+import { MeasureCamera } from './MeasureCamera';
 import { MeasureTap } from './MeasureTap';
 import { MeasureWalls } from './MeasureWalls';
 import { RoomPhotos, type PendingPhoto } from './RoomPhotos';
 import { RoomPreview } from './RoomPreview';
 
-type Step = 'intro' | 'room' | 'ar' | 'walls' | 'tap' | 'photos' | 'review' | 'sent';
+type Step = 'intro' | 'room' | 'camera' | 'ar' | 'walls' | 'tap' | 'photos' | 'review' | 'sent';
 
 const FLOORS = ['Begane grond', 'Eerste verdieping', 'Tweede verdieping', 'Zolder', 'Kelder', 'Berging'];
 const ROOM_SUGGESTIONS = [
@@ -109,7 +110,7 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
     setStep('room');
   };
 
-  const onMeasured = (poly: Pt[], _area: number, method: CaptureRoom['method']) => {
+  const onMeasured = (poly: Pt[], _area: number, method: CaptureRoom['method'], heading?: number | null) => {
     const clean = tidy(poly);
     const room: CaptureRoom = {
       clientId: crypto.randomUUID(),
@@ -118,6 +119,7 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
       method,
       poly: clean,
       height: Number(height.replace(',', '.')) || undefined,
+      heading: heading ?? undefined,
       photoIds: [],
     };
     setCurrentRoom(room);
@@ -259,10 +261,16 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
 
             <div className="cap-panel-title small">Hoe meet je deze ruimte?</div>
             <div className="cap-methods">
-              <button className="cap-method" onClick={() => setStep('ar')} disabled={!arSupported}>
-                <strong>AR-opname</strong>
-                <span>{arSupported ? 'Richt op de vloer en tik de hoeken aan' : 'Niet beschikbaar op deze telefoon'}</span>
+              <button className="cap-method primary" onClick={() => setStep('camera')}>
+                <strong>Scannen met de camera</strong>
+                <span>Richt op elke hoek, de telefoon meet de afstand</span>
               </button>
+              {arSupported && (
+                <button className="cap-method" onClick={() => setStep('ar')}>
+                  <strong>AR-opname</strong>
+                  <span>Met dieptemeting van de telefoon, nog nauwkeuriger</span>
+                </button>
+              )}
               <button className="cap-method" onClick={() => setStep('walls')}>
                 <strong>Muur voor muur</strong>
                 <span>Lengtes van de lasermeter, exacte maten</span>
@@ -280,6 +288,13 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
           </div>
         )}
 
+        {step === 'camera' && (
+          <MeasureCamera
+            onDone={(p, a, heading) => onMeasured(p, a, 'camera', heading)}
+            onCancel={() => setStep('room')}
+            onUnsupported={() => setStep('room')}
+          />
+        )}
         {step === 'ar' && <MeasureAr onDone={(p, a) => onMeasured(p, a, 'ar')} onCancel={() => setStep('room')} />}
         {step === 'walls' && <MeasureWalls onDone={(p, a) => onMeasured(p, a, 'manual')} onCancel={() => setStep('room')} />}
         {step === 'tap' && <MeasureTap onDone={(p, a) => onMeasured(p, a, 'manual')} onCancel={() => setStep('room')} />}

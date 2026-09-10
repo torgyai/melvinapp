@@ -168,7 +168,7 @@ export interface SentEmail {
 
 /* ---------- capture (phone scan) ---------- */
 
-export type CaptureMethod = 'ar' | 'manual' | 'lidar' | 'import';
+export type CaptureMethod = 'camera' | 'ar' | 'manual' | 'lidar' | 'import';
 export type CaptureStatus = 'open' | 'capturing' | 'uploaded' | 'processing' | 'processed' | 'failed';
 
 export interface CaptureRoom {

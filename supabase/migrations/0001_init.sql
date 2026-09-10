@@ -103,7 +103,7 @@ create table if not exists capture_sessions (
   created_by   text references profiles(id) on delete set null,
   status       text not null default 'open'
                check (status in ('open','capturing','uploaded','processing','processed','failed')),
-  method       text check (method in ('ar','manual','lidar','import')),
+  method       text check (method in ('camera','ar','manual','lidar','import')),
   rooms        jsonb not null default '[]'::jsonb,
   device_info  jsonb,
   processed_at timestamptz,

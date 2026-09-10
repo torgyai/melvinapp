@@ -106,7 +106,16 @@ export function ScanView() {
 
       {token && (
         <div className="panel">
-          <h3>Open de opname op de telefoon</h3>
+          <h3>Opname starten</h3>
+          <div className="scan-start-row">
+            <Link className="primary-btn" href={`/capture/${token}`}>
+              📷 Opnemen op dit apparaat
+            </Link>
+            <span className="scan-start-hint">
+              Sta je met de telefoon in de woning, begin dan hier. Zit je achter de laptop, scan dan de code hieronder
+              met de telefoon van de opnemer.
+            </span>
+          </div>
           <div className="scan-link-grid">
             <div>
               {qr && (

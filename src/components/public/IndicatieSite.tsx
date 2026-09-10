@@ -266,7 +266,7 @@ export function IndicatieSite() {
     <div className="public-view">
       <div className="pub-topbar">
         <div className="pub-topbar-brand">
-          <Logo height={30} />
+          <Logo height={30} variant="mark" />
           <span className="name">Krik je energielabel op</span>
         </div>
         <div className="pub-topbar-actions">

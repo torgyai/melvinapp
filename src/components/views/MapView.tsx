@@ -8,6 +8,7 @@ import { MyProjectsToggle } from '@/components/platform/Shared';
 import { CITY_LATLNG, NL_BOUNDS, NL_PROVINCES_GEOJSON, PROVINCE_LABELS, REFERENCE_PLACES } from '@/data/geo';
 import { getStatus } from '@/lib/domain';
 import type { Property, StatusKey } from '@/lib/types';
+import { HeaderPill } from '@/components/platform/HeaderPill';
 
 type LngLat = [number, number];
 
@@ -38,7 +39,7 @@ function mlPinLngLat(base: LngLat, i: number, n: number): LngLat {
 export function MapView() {
   const { visibleProperties } = useApp();
   const router = useRouter();
-  usePageHeader('Kaart', 'Panden op de kaart · Nederland', <MyProjectsToggle />);
+  usePageHeader('Kaart', 'Panden op de kaart · Nederland');
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -158,6 +159,9 @@ export function MapView() {
 
   return (
     <div className="panel">
+      <HeaderPill>
+        <MyProjectsToggle />
+      </HeaderPill>
       <div className="maplibre-frame">
         <div ref={containerRef} className="maplibre-el" />
       </div>

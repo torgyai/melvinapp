@@ -33,8 +33,8 @@ export function MediaThumbs({ p, onOpenVideo }: { p: Property; onOpenVideo?: () 
   const names = p.photoCount > 0 ? roomNames(p).slice(0, 4) : [];
   return (
     <div className="media-thumbs">
-      {names.map((name) => (
-        <div className="media-thumb" key={name} style={PLACEHOLDER_INK}>
+      {names.map((name, i) => (
+        <div className="media-thumb" key={`${name}-${i}`} style={PLACEHOLDER_INK}>
           <div>{name}</div>
         </div>
       ))}
@@ -137,8 +137,8 @@ export function PhotosModal({ p, open, onClose }: { p: Property; open: boolean; 
         {p.address}, {p.city} · {p.photoCount} afgewerkte beelden · beelden nog niet gekoppeld aan het platform
       </ModalSub>
       <div className="photo-grid">
-        {tiles.map((name) => (
-          <div className="photo-tile" key={name}>
+        {tiles.map((name, i) => (
+          <div className="photo-tile" key={`${name}-${i}`}>
             <span className="photo-tile-label">{name}</span>
           </div>
         ))}

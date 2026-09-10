@@ -16,6 +16,7 @@ import { MODES, PIPELINE, modeOf, totalArea } from '@/lib/domain';
 import { fmtNum } from '@/lib/format';
 import type { Note, OutputMode, Property } from '@/lib/types';
 import { LabelStatusBox } from './BerekeningView';
+import { HeaderPill } from '@/components/platform/HeaderPill';
 
 function wait(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -279,11 +280,13 @@ function WaitBody({ p }: { p: Property }) {
 }
 
 export function PandDetailView({ p, notes }: { p: Property; notes: Note[] }) {
-  const pill = useMemo(() => <StatusPill p={p} />, [p]);
-  usePageHeader(p.address, p.city, pill);
+  usePageHeader(p.address, p.city);
 
   return (
     <>
+      <HeaderPill>
+        <StatusPill p={p} />
+      </HeaderPill>
       <MetaChips p={p} />
       {p.lifecycle === 'interactive' && <InteractiveBody p={p} />}
       {p.lifecycle === 'progress' && <ProgressBody p={p} />}

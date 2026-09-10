@@ -28,8 +28,8 @@ export function RoomTable({ floor }: { floor: Floor }) {
         </tr>
       </thead>
       <tbody>
-        {floor.rooms.map((r) => (
-          <tr key={r.name}>
+        {floor.rooms.map((r, i) => (
+          <tr key={`${r.name}-${i}`}>
             <td>{r.name}</td>
             <td style={{ textAlign: 'right' }}>{fmtNum(r.area)} m²</td>
           </tr>
@@ -88,8 +88,8 @@ function NenReportModal({ p, open, onClose }: { p: Property; open: boolean; onCl
             </tr>
           </thead>
           <tbody>
-            {f.rooms.map((r) => (
-              <tr key={r.name}>
+            {f.rooms.map((r, i) => (
+              <tr key={`${r.name}-${i}`}>
                 <td>{r.name}</td>
                 <td style={{ textAlign: 'right' }}>{fmtNum(r.area)} m²</td>
               </tr>

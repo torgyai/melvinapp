@@ -77,6 +77,10 @@ export function estimateEnergy(area: number, property?: Property | null): { labe
   return { label: indexToLabel(idx), index: idx };
 }
 
+/** Draw a floor that is already stored on a property. */
 export function renderFloorFromRooms(name: string, rooms: Room[]): string {
-  return renderFloorSvg(assembleFloor(name, rooms));
+  const clean = rooms.map((r) =>
+    r.poly && r.poly.length >= 3 ? { ...r, poly: regularize(r.poly) } : r,
+  );
+  return renderFloorSvg(assembleFloor(name, clean));
 }

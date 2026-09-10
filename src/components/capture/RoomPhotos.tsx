@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { queuePhoto } from '@/lib/capture/local-store';
 
 export interface PendingPhoto {
@@ -34,13 +34,19 @@ export function RoomPhotos({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState('ruimte');
+  const [failed, setFailed] = useState(0);
+  const urls = useRef<string[]>([]);
+
+  // Camera blobs are large; a long opname would otherwise hold every one of them
+  // for the life of the tab.
+  useEffect(() => () => urls.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
   const handleFiles = async (files: FileList | null) => {
     if (!files) return;
     for (const file of Array.from(files)) {
       const id = crypto.randomUUID();
       const bitmap = await createImageBitmap(file).catch(() => null);
-      await queuePhoto({
+      const queued = await queuePhoto({
         id,
         token,
         roomClientId,
@@ -50,7 +56,13 @@ export function RoomPhotos({
         height: bitmap?.height ?? 0,
       });
       bitmap?.close();
-      onAdd({ id, url: URL.createObjectURL(file), kind });
+      if (!queued) {
+        setFailed((n) => n + 1);
+        continue;
+      }
+      const url = URL.createObjectURL(file);
+      urls.current.push(url);
+      onAdd({ id, url, kind });
     }
   };
 
@@ -75,6 +87,12 @@ export function RoomPhotos({
         hidden
         onChange={(e) => void handleFiles(e.target.files)}
       />
+      {failed > 0 && (
+        <div className="cap-note warn">
+          {failed} foto{failed === 1 ? '' : "'s"} kon niet lokaal worden bewaard. Zet opslag voor deze site aan, of maak de
+          foto opnieuw zodra je bereik hebt.
+        </div>
+      )}
       {photos.length > 0 && (
         <div className="cap-photo-grid">
           {photos.map((p) => (

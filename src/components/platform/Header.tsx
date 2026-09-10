@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { avatarSrc } from '@/data/profiles';
 import { computeNotifications, notifIcon } from '@/lib/notifications';
 import { useApp } from './AppContext';
+import { HEADER_PILL_SLOT } from './HeaderPill';
 import { Icons } from './Icons';
 
 export function Header() {
@@ -24,7 +25,7 @@ export function Header() {
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
-      <div>{header.pill ?? null}</div>
+      <div id={HEADER_PILL_SLOT} />
       <NotificationBell />
       <ProfileSwitcher />
     </header>

@@ -13,12 +13,12 @@ import { fmtNum } from '@/lib/format';
 import { adviesForLabel } from '@/lib/nta8800';
 import type { Property } from '@/lib/types';
 import { CalcSections, printDoc } from './BerekeningView';
+import { HeaderPill } from '@/components/platform/HeaderPill';
 
 export function RapportView({ p }: { p: Property }) {
   const router = useRouter();
   const { profiles } = useApp();
-  const pill = useMemo(() => <StatusPill p={p} />, [p]);
-  usePageHeader(p.address, `Eindrapport · ${p.city}`, pill);
+  usePageHeader(p.address, `Eindrapport · ${p.city}`);
 
   const st = getStatus(p);
   const mode = modeOf(p);
@@ -26,9 +26,16 @@ export function RapportView({ p }: { p: Property }) {
   const showLabel = (mode === 'both' || mode === 'label') && Boolean(p.label);
   const assignee = profiles.find((x) => x.id === p.assignedTo) ?? null;
 
+  const headerPill = (
+    <HeaderPill>
+      <StatusPill p={p} />
+    </HeaderPill>
+  );
+
   if (st.key === 'wait' || st.key === 'progress') {
     return (
       <>
+        {headerPill}
         <div className="report-toolbar no-print">
           <button className="ghost-btn" onClick={() => router.push(`/panden/${p.id}`)}>
             ← Terug naar pand
@@ -54,6 +61,7 @@ export function RapportView({ p }: { p: Property }) {
 
   return (
     <>
+      {headerPill}
       <div className="report-toolbar no-print">
         <button className="ghost-btn" onClick={() => router.push(`/panden/${p.id}`)}>
           ← Terug naar pand
@@ -135,8 +143,8 @@ export function RapportView({ p }: { p: Property }) {
                         </tr>
                       </thead>
                       <tbody>
-                        {f.rooms.map((r) => (
-                          <tr key={r.name}>
+                        {f.rooms.map((r, i) => (
+                          <tr key={`${r.name}-${i}`}>
                             <td>{r.name}</td>
                             <td style={{ textAlign: 'right' }}>{fmtNum(r.area)} m²</td>
                           </tr>

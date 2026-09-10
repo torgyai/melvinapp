@@ -1,5 +1,5 @@
 import type { Opening, Pt, Room } from '@/lib/types';
-import { bbox, boxesOverlap, polygonArea, rectangle, regularize, translate, type Box } from './geometry';
+import { bbox, boxesOverlap, polygonArea, rectangle, translate, type Box } from './geometry';
 
 export interface PlacedRoom {
   openings?: Opening[];
@@ -23,6 +23,9 @@ export interface AssembledFloor {
  * Rooms captured in one continuous AR walk share an origin, so their outlines
  * already sit in the right place relative to each other. Rooms captured one at a
  * time do not, and get packed into a plausible plan instead.
+ *
+ * Outlines are taken as given: `processCapture` has already regularised them,
+ * and running that a second time would move the m² away from the measurement.
  */
 export function assembleFloor(name: string, rooms: Room[]): AssembledFloor {
   const withGeometry = rooms.filter((r) => r.poly && r.poly.length >= 3);
@@ -44,7 +47,7 @@ function hasDistinctOrigins(rooms: Room[]): boolean {
 
 function placeMeasured(rooms: Room[]): PlacedRoom[] {
   return rooms.map((r) => {
-    const poly = regularize(r.poly!);
+    const poly = r.poly!;
     return { name: r.name, area: r.area || round1(polygonArea(poly)), poly, box: bbox(poly), measured: true, openings: r.openings };
   });
 }
@@ -61,7 +64,7 @@ function round1(n: number): number {
 export function packRooms(rooms: Room[]): PlacedRoom[] {
   const prepared = rooms.map((r) => {
     if (r.poly && r.poly.length >= 3) {
-      const poly = regularize(r.poly);
+      const poly = r.poly;
       const b = bbox(poly);
       return { name: r.name, area: r.area || round1(polygonArea(poly)), poly: translate(poly, -b.minX, -b.minY), measured: true, openings: r.openings };
     }

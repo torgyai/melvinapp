@@ -58,15 +58,29 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
 
   const syncRooms = useCallback(
     async (next: CaptureRoom[]) => {
-      await saveRooms(token, next);
+      const stored = await saveRooms(token, next);
+      if (!stored) {
+        setError('Deze browser mag niets lokaal bewaren. Werk door met bereik, anders gaan ruimtes verloren.');
+      }
       try {
-        await fetch(`/api/capture/${token}`, {
+        const res = await fetch(`/api/capture/${token}`, {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ rooms: next, status: 'capturing' }),
         });
+        if (res.status === 409) {
+          setError('Deze opname is al verwerkt. Start een nieuwe opname voor dit pand om verder te gaan.');
+          return false;
+        }
+        if (!res.ok) {
+          setError('De ruimtes konden niet worden opgeslagen op de server. Ze staan lokaal en gaan mee bij de volgende poging.');
+          return false;
+        }
+        setError(null);
+        return true;
       } catch {
         // Geen bereik: de ruimtes staan lokaal en gaan bij de volgende poging mee.
+        return false;
       }
     },
     [token],
@@ -125,12 +139,39 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
     await syncRooms(next);
   };
 
+  /**
+   * A finished capture is closed. Picking the work up again opens a new session
+   * for the same property, so the server never re-processes an old room list.
+   */
+  const startFollowUp = async () => {
+    if (!property) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/capture', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ propertyId: property.id, createdBy: session.createdBy }),
+      });
+      const json = (await res.json()) as { token?: string; error?: string };
+      if (!res.ok || !json.token) throw new Error(json.error ?? 'Nieuwe opname starten is mislukt');
+      window.location.href = `/capture/${json.token}`;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Nieuwe opname starten is mislukt');
+      setBusy(false);
+    }
+  };
+
   const finish = async () => {
     setBusy(true);
     setError(null);
     try {
       await flushQueue(token);
-      await syncRooms(rooms);
+      const synced = await syncRooms(rooms);
+      if (!synced) {
+        setBusy(false);
+        return;
+      }
       await fetch(`/api/capture/${token}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
@@ -321,10 +362,11 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
               </ul>
             )}
             <div className="cap-actions">
-              <button className="cap-btn ghost" onClick={startRoom}>
+              <button className="cap-btn ghost" disabled={busy} onClick={() => void startFollowUp()}>
                 Nog een ruimte opnemen
               </button>
             </div>
+            {error && <div className="cap-note warn">{error}</div>}
           </div>
         )}
       </main>

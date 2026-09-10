@@ -7,10 +7,11 @@ import { Icons } from '@/components/platform/Icons';
 import { MyProjectsToggle } from '@/components/platform/Shared';
 import { TasksWidget } from '@/components/platform/TasksWidget';
 import { UrgentEmailWidget } from '@/components/platform/UrgentEmailWidget';
+import { HeaderPill } from '@/components/platform/HeaderPill';
 
 export function OverzichtView() {
   const { properties, visibleProperties } = useApp();
-  usePageHeader('Overzicht', '', <MyProjectsToggle />);
+  usePageHeader('Overzicht');
 
   const counts = { ready: 0, progress: 0, done: 0, wait: 0 };
   visibleProperties.forEach((p) => {
@@ -21,6 +22,9 @@ export function OverzichtView() {
 
   return (
     <>
+      <HeaderPill>
+        <MyProjectsToggle />
+      </HeaderPill>
       <div className="tiles">
         <Tile value={visibleProperties.length} label="panden" />
         <Tile value={counts.ready} label="klaar voor controle" />

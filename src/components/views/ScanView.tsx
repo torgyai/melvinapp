@@ -58,15 +58,19 @@ export function ScanView() {
 
   useEffect(() => {
     if (!token) return;
-    let stop = false;
+    let stopped = false;
+    let id: ReturnType<typeof setInterval> | undefined;
     const poll = async () => {
+      if (stopped) return;
       try {
         const res = await fetch(`/api/capture/${token}`, { cache: 'no-store' });
         if (!res.ok) return;
         const json = (await res.json()) as { session: CaptureSession };
-        if (!stop) setSession(json.session);
+        if (stopped) return;
+        setSession(json.session);
         if (json.session.status === 'processed') {
-          stop = true;
+          stopped = true;
+          if (id) clearInterval(id);
           router.refresh();
         }
       } catch {
@@ -74,9 +78,9 @@ export function ScanView() {
       }
     };
     void poll();
-    const id = setInterval(poll, 4000);
+    id = setInterval(poll, 4000);
     return () => {
-      stop = true;
+      stopped = true;
       clearInterval(id);
     };
   }, [token, router]);

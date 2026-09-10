@@ -46,8 +46,14 @@ async function withStore<T>(name: string, mode: IDBTransactionMode, fn: (s: IDBO
   });
 }
 
-export async function saveRooms(token: string, rooms: CaptureRoom[]): Promise<void> {
-  await withStore(ROOMS, 'readwrite', (s) => s.put(rooms, token) as unknown as IDBRequest<undefined>);
+/** Best effort: a browser with site data blocked must not dead-end the opname. */
+export async function saveRooms(token: string, rooms: CaptureRoom[]): Promise<boolean> {
+  try {
+    await withStore(ROOMS, 'readwrite', (s) => s.put(rooms, token) as unknown as IDBRequest<undefined>);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function loadRooms(token: string): Promise<CaptureRoom[] | null> {
@@ -59,8 +65,13 @@ export async function loadRooms(token: string): Promise<CaptureRoom[] | null> {
   }
 }
 
-export async function queuePhoto(photo: QueuedPhoto): Promise<void> {
-  await withStore(QUEUE, 'readwrite', (s) => s.put(photo) as unknown as IDBRequest<undefined>);
+export async function queuePhoto(photo: QueuedPhoto): Promise<boolean> {
+  try {
+    await withStore(QUEUE, 'readwrite', (s) => s.put(photo) as unknown as IDBRequest<undefined>);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function listQueue(token: string): Promise<QueuedPhoto[]> {
@@ -73,7 +84,11 @@ export async function listQueue(token: string): Promise<QueuedPhoto[]> {
 }
 
 export async function dropFromQueue(id: string): Promise<void> {
-  await withStore(QUEUE, 'readwrite', (s) => s.delete(id) as unknown as IDBRequest<undefined>);
+  try {
+    await withStore(QUEUE, 'readwrite', (s) => s.delete(id) as unknown as IDBRequest<undefined>);
+  } catch {
+    // Niets te doen: de foto is al verstuurd, hij blijft hooguit in de wachtrij staan.
+  }
 }
 
 /** Send everything that is still waiting. Returns how many made it. */

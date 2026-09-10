@@ -16,6 +16,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ token:
   const session = await store.getCaptureSessionByToken(token);
   if (!session) return NextResponse.json({ error: 'Onbekende opnamelink' }, { status: 404 });
   if (!session.rooms.length) return NextResponse.json({ error: 'Er zijn nog geen ruimtes opgenomen' }, { status: 400 });
+  if (session.status === 'processed') {
+    return NextResponse.json({ error: 'Deze opname is al verwerkt' }, { status: 409 });
+  }
 
   await store.updateCaptureSession(session.id, { status: 'processing' });
 
@@ -23,12 +26,18 @@ export async function POST(_req: Request, { params }: { params: Promise<{ token:
   try {
     const result = processCapture(session, property);
 
-    if (property) {
+    // Een afgemeld pand blijft afgemeld: een nieuwe opname mag een getekend
+    // rapport niet terugzetten. De opname wordt wel verwerkt en bewaard.
+    if (property && property.lifecycle !== 'done') {
       const patch: Partial<Property> = {
         floors: result.floors,
         photoCount: session.photos.length,
         lifecycle: 'interactive',
-        runtime: { mode: property.fixedMode ?? 'both', processed: false, processing: false },
+        runtime: {
+          mode: property.runtime?.mode ?? property.fixedMode ?? 'both',
+          processed: false,
+          processing: false,
+        },
       };
       if (!property.label) {
         patch.label = result.estimate.label;
@@ -49,7 +58,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ token:
       floors: result.floors.map((f) => ({ name: f.name, rooms: f.rooms.length })),
       totalArea: result.totalArea,
       estimate: result.estimate,
-      warnings: result.warnings,
+      warnings:
+        property?.lifecycle === 'done'
+          ? [...result.warnings, 'Dit pand is al afgemeld. De opname is bewaard, maar het bestaande rapport is niet overschreven.']
+          : result.warnings,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Verwerken is mislukt';

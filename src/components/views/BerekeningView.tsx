@@ -16,6 +16,7 @@ import {
   type SimState,
 } from '@/lib/nta8800';
 import type { Property } from '@/lib/types';
+import { HeaderPill } from '@/components/platform/HeaderPill';
 
 export function printDoc(p: Property, kind: string) {
   const prevTitle = document.title;
@@ -150,8 +151,7 @@ export function CalcSections({ p }: { p: Property }) {
 
 export function BerekeningView({ p }: { p: Property }) {
   const router = useRouter();
-  const pill = useMemo(() => <StatusPill p={p} />, [p]);
-  usePageHeader(p.address, `NTA 8800-berekening · ${p.city}`, pill);
+  usePageHeader(p.address, `NTA 8800-berekening · ${p.city}`);
 
   const [sim, setSim] = useState<SimState>({ isolatie: false, ketel: false, zon: false });
   const result = computeSim(p, sim);
@@ -160,6 +160,9 @@ export function BerekeningView({ p }: { p: Property }) {
 
   return (
     <>
+      <HeaderPill>
+        <StatusPill p={p} />
+      </HeaderPill>
       <div className="report-toolbar no-print">
         <button className="ghost-btn" onClick={() => router.push(`/panden/${p.id}`)}>
           ← Terug naar pand

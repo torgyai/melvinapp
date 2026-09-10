@@ -83,11 +83,10 @@ export function dedupe(poly: Pt[], tol = 0.05): Pt[] {
 }
 
 /**
- * Ramer-Douglas-Peucker. A hand-tapped or AR-traced outline carries jitter that
- * would otherwise turn into fake corners on the plan.
+ * Ramer-Douglas-Peucker on an open polyline. Both endpoints are kept.
  */
 export function simplify(poly: Pt[], tol = 0.12): Pt[] {
-  if (poly.length < 4) return poly;
+  if (poly.length < 3) return poly;
   const keep = new Array(poly.length).fill(false);
   keep[0] = true;
   keep[poly.length - 1] = true;
@@ -110,6 +109,32 @@ export function simplify(poly: Pt[], tol = 0.12): Pt[] {
     }
   }
   return poly.filter((_, i) => keep[i]);
+}
+
+/**
+ * Simplify a closed ring. A trace rarely starts on a corner, and running the
+ * open-polyline version straight on the ring pins the first and last sample as
+ * corners, which puts a false bend in the middle of a wall. Splitting the ring
+ * at its two most distant points gives two chains whose endpoints really are
+ * corners.
+ */
+export function simplifyRing(poly: Pt[], tol = 0.12): Pt[] {
+  if (poly.length < 5) return poly;
+  const a = 0;
+  let b = 0;
+  let best = -1;
+  for (let i = 1; i < poly.length; i++) {
+    const d = Math.hypot(poly[i]!.x - poly[a]!.x, poly[i]!.y - poly[a]!.y);
+    if (d > best) {
+      best = d;
+      b = i;
+    }
+  }
+  const first = simplify(poly.slice(a, b + 1), tol);
+  const second = simplify([...poly.slice(b), poly[a]!], tol);
+  // Drop the duplicated join points: `first` ends at b, `second` starts at b and
+  // ends back at a.
+  return [...first.slice(0, -1), ...second.slice(0, -1)];
 }
 
 export function pointSegmentDistance(p: Pt, a: Pt, b: Pt): number {
@@ -161,7 +186,10 @@ export function regularize(input: Pt[], opts: { snapTolerance?: number } = {}): 
   const tol = opts.snapTolerance ?? 0.35; // radians away from an axis still counts as that axis
   let poly = dedupe(input);
   if (poly.length < 3) return poly;
-  poly = simplify(poly, 0.1);
+  // The area to hold on to is the one that was measured, before any smoothing.
+  const measuredArea = polygonArea(poly);
+  poly = simplifyRing(poly, 0.1);
+  if (poly.length < 3) return dedupe(input);
   poly = ensureCCW(poly);
 
   const angle = dominantAngle(poly);
@@ -190,9 +218,63 @@ export function regularize(input: Pt[], opts: { snapTolerance?: number } = {}): 
     }
   }
 
-  const snapped = dedupe(pts, 0.06);
-  const scaled = preserveArea(snapped, polygonArea(poly));
+  let cleaned = dropCollinear(dedupe(pts, 0.06));
+  if (cleaned.length < 3) return rotate(dedupe(pts, 0.01), angle, centre);
+  // Settling and cleanup feed each other: squaring the ring exposes corners that
+  // were never real, and removing those lets the rest square up further.
+  for (let pass = 0; pass < 2; pass++) {
+    cleaned = dropCollinear(dedupe(settleAxes(cleaned), 0.06));
+    if (cleaned.length < 3) return rotate(dedupe(pts, 0.01), angle, centre);
+  }
+  const scaled = preserveArea(settleAxes(cleaned), measuredArea);
   return rotate(scaled, angle, centre);
+}
+
+/**
+ * Remove the corners that snapping leaves behind: a vertex whose two walls run
+ * the same way is not a corner, and a wall a few centimetres long is a seam in
+ * the trace rather than a feature of the room.
+ */
+export function dropCollinear(poly: Pt[], angleTol = 0.22, minWall = 0.35): Pt[] {
+  let pts = poly.map((p) => ({ ...p }));
+  let changed = true;
+  while (changed && pts.length > 3) {
+    changed = false;
+    for (let i = 0; i < pts.length; i++) {
+      const prev = pts[(i - 1 + pts.length) % pts.length]!;
+      const cur = pts[i]!;
+      const next = pts[(i + 1) % pts.length]!;
+      const inAngle = Math.atan2(cur.y - prev.y, cur.x - prev.x);
+      const outAngle = Math.atan2(next.y - cur.y, next.x - cur.x);
+      const turn = Math.abs(normaliseAngle(outAngle - inAngle));
+      const wall = Math.hypot(next.x - cur.x, next.y - cur.y);
+      if (turn < angleTol || wall < minWall) {
+        pts = pts.filter((_, idx) => idx !== i);
+        changed = true;
+        break;
+      }
+    }
+  }
+  return pts;
+}
+
+/** Pull every wall onto the axis it is already closest to. */
+function settleAxes(poly: Pt[]): Pt[] {
+  const pts = poly.map((p) => ({ ...p }));
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]!;
+    const b = pts[(i + 1) % pts.length]!;
+    if (Math.abs(b.x - a.x) < Math.abs(b.y - a.y)) {
+      const mid = (a.x + b.x) / 2;
+      a.x = mid;
+      b.x = mid;
+    } else {
+      const mid = (a.y + b.y) / 2;
+      a.y = mid;
+      b.y = mid;
+    }
+  }
+  return pts;
 }
 
 function normaliseAngle(a: number): number {

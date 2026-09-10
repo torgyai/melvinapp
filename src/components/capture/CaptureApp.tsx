@@ -37,6 +37,7 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
   const [floorName, setFloorName] = useState(FLOORS[0]!);
   const [height, setHeight] = useState('');
   const [currentRoom, setCurrentRoom] = useState<CaptureRoom | null>(null);
+  const [methodNote, setMethodNote] = useState<string | null>(null);
 
   useEffect(() => {
     void isArSupported().then(setArSupported);
@@ -104,6 +105,7 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
   const totalArea = useMemo(() => rooms.reduce((s, r) => s + (r.poly ? areaOfRoom(r) : 0), 0), [rooms]);
 
   const startRoom = () => {
+    setMethodNote(null);
     setRoomName('');
     setHeight('');
     setCurrentRoom(null);
@@ -259,9 +261,16 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
               <input inputMode="decimal" value={height} placeholder="2,60" onChange={(e) => setHeight(e.target.value)} />
             </label>
 
+            {methodNote && <div className="cap-note warn">{methodNote}</div>}
             <div className="cap-panel-title small">Hoe meet je deze ruimte?</div>
             <div className="cap-methods">
-              <button className="cap-method primary" onClick={() => setStep('camera')}>
+              <button
+                className="cap-method primary"
+                onClick={() => {
+                  setMethodNote(null);
+                  setStep('camera');
+                }}
+              >
                 <strong>Scannen met de camera</strong>
                 <span>Richt op elke hoek, de telefoon meet de afstand</span>
               </button>
@@ -292,7 +301,10 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
           <MeasureCamera
             onDone={(p, a, heading) => onMeasured(p, a, 'camera', heading)}
             onCancel={() => setStep('room')}
-            onUnsupported={() => setStep('room')}
+            onUnsupported={(reason) => {
+              setMethodNote(reason);
+              setStep('room');
+            }}
           />
         )}
         {step === 'ar' && <MeasureAr onDone={(p, a) => onMeasured(p, a, 'ar')} onCancel={() => setStep('room')} />}

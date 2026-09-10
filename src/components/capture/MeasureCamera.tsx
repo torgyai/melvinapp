@@ -30,7 +30,7 @@ export function MeasureCamera({
 }: {
   onDone: (poly: Pt[], area: number, heading: number | null) => void;
   onCancel: () => void;
-  onUnsupported: () => void;
+  onUnsupported: (reason: string) => void;
 }) {
   const [started, setStarted] = useState(false);
   const [height, setHeight] = useState(String(DEFAULT_HEIGHT).replace('.', ','));
@@ -68,12 +68,11 @@ export function MeasureCamera({
   const begin = async () => {
     const ok = await request();
     if (!ok) {
-      setMessage(
+      onUnsupported(
         permission === 'denied'
-          ? 'Bewegingssensoren zijn geweigerd. Kies een andere manier om te meten.'
-          : 'Deze telefoon geeft geen richtingsgegevens. Kies een andere manier om te meten.',
+          ? 'Bewegingssensoren zijn geweigerd, dus de camera kan niet meten. Sta ze toe in de browserinstellingen, of kies een andere manier.'
+          : 'Dit apparaat geeft geen richtingsgegevens door. Open de opname op een telefoon, of kies een andere manier om te meten.',
       );
-      onUnsupported();
       return;
     }
     setStarted(true);

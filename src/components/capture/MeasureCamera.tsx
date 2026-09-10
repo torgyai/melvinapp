@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MAX_RANGE_M,
   MIN_DEPRESSION_DEG,
@@ -40,6 +40,17 @@ export function MeasureCamera({
 
   const { aim, permission, request } = useDeviceOrientation();
   const { videoRef, error: cameraError } = useCameraStream(started);
+  const [noSensor, setNoSensor] = useState(false);
+  const sawReading = useRef(false);
+  if (aim.depression !== null) sawReading.current = true;
+
+  // A laptop has a camera but no orientation sensor, and the events simply never
+  // fire. Say so instead of leaving the crosshair sitting there.
+  useEffect(() => {
+    if (!started) return;
+    const id = setTimeout(() => setNoSensor(!sawReading.current), 2500);
+    return () => clearTimeout(id);
+  }, [started]);
 
   const cameraHeight = Number(height.replace(',', '.')) || DEFAULT_HEIGHT;
   const liveDistance = aim.depression !== null ? distanceFromSighting(aim.depression, cameraHeight) : null;
@@ -115,6 +126,13 @@ export function MeasureCamera({
   return (
     <div className="cap-panel">
       <div className="cap-panel-title">Scannen met de camera</div>
+
+      {noSensor && (
+        <div className="cap-note warn">
+          Dit apparaat geeft geen richtingsgegevens door, dus de camera kan hier niet meten. Open de opname op een
+          telefoon, of kies hieronder een andere manier.
+        </div>
+      )}
 
       <div className="cap-stage cap-scan-stage">
         <video ref={videoRef} autoPlay playsInline muted hidden={Boolean(cameraError)} />

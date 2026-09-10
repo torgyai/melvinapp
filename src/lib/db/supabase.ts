@@ -180,7 +180,11 @@ export class SupabaseStore implements Store {
   async listProfiles(): Promise<Profile[]> {
     const { data, error } = await this.db.from('profiles').select('*').order('name');
     if (error) throw error;
-    return (data ?? []).map((r) => ({
+    // Admin first, then the adviseurs, then administratie: the order the office
+    // reads the team in, and the order the dashboard colours follow.
+    const rank: Record<string, number> = { admin: 0, adviseur: 1, administratie: 2 };
+    const rows = (data ?? []).slice().sort((a, b) => (rank[a.role] ?? 9) - (rank[b.role] ?? 9) || a.name.localeCompare(b.name));
+    return rows.map((r) => ({
       id: r.id,
       name: r.name,
       role: r.role,

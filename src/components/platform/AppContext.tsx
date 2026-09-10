@@ -29,7 +29,9 @@ interface AppContextValue extends AppData {
 const Ctx = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ data, children }: { data: AppData; children: ReactNode }) {
-  const [currentProfileId, setCurrentProfileId] = useState(data.profiles[0]?.id ?? 'melvin');
+  const [currentProfileId, setCurrentProfileId] = useState(
+    () => (data.profiles.find((p) => p.role === 'admin') ?? data.profiles[0])?.id ?? 'melvin',
+  );
   const [lang, setLangState] = useState<Lang>('nl');
   const [myProjectsOnly, setMyProjectsOnly] = useState(false);
   const [search, setSearch] = useState('');

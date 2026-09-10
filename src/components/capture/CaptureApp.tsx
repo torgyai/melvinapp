@@ -8,12 +8,13 @@ import { fmtNum } from '@/lib/format';
 import type { CaptureRoom, CaptureSession, Property, Pt } from '@/lib/types';
 import { MeasureAr } from './MeasureAr';
 import { MeasureCamera } from './MeasureCamera';
+import { MeasureSweep } from './MeasureSweep';
 import { MeasureTap } from './MeasureTap';
 import { MeasureWalls } from './MeasureWalls';
 import { RoomPhotos, type PendingPhoto } from './RoomPhotos';
 import { RoomPreview } from './RoomPreview';
 
-type Step = 'intro' | 'room' | 'camera' | 'ar' | 'walls' | 'tap' | 'photos' | 'review' | 'sent';
+type Step = 'intro' | 'room' | 'sweep' | 'camera' | 'ar' | 'walls' | 'tap' | 'photos' | 'review' | 'sent';
 
 const FLOORS = ['Begane grond', 'Eerste verdieping', 'Tweede verdieping', 'Zolder', 'Kelder', 'Berging'];
 const ROOM_SUGGESTIONS = [
@@ -268,11 +269,21 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
                 className="cap-method primary"
                 onClick={() => {
                   setMethodNote(null);
+                  setStep('sweep');
+                }}
+              >
+                <strong>Ruimte rondscannen</strong>
+                <span>Draai één keer rond, de plattegrond tekent zichzelf</span>
+              </button>
+              <button
+                className="cap-method"
+                onClick={() => {
+                  setMethodNote(null);
                   setStep('camera');
                 }}
               >
-                <strong>Scannen met de camera</strong>
-                <span>Richt op elke hoek, de telefoon meet de afstand</span>
+                <strong>Hoek voor hoek richten</strong>
+                <span>Voor ruimtes met veel meubels of een L-vorm</span>
               </button>
               {arSupported && (
                 <button className="cap-method" onClick={() => setStep('ar')}>
@@ -297,6 +308,16 @@ export function CaptureApp({ session, property }: { session: CaptureSession; pro
           </div>
         )}
 
+        {step === 'sweep' && (
+          <MeasureSweep
+            onDone={(p, a, heading) => onMeasured(p, a, 'camera', heading)}
+            onCancel={() => setStep('room')}
+            onUnsupported={(reason) => {
+              setMethodNote(reason);
+              setStep('room');
+            }}
+          />
+        )}
         {step === 'camera' && (
           <MeasureCamera
             onDone={(p, a, heading) => onMeasured(p, a, 'camera', heading)}
